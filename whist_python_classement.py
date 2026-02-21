@@ -281,10 +281,13 @@ while col_idx < len(df_historique.columns):
 combined_data = combined_data.sort_index()
 combined_data = combined_data.ffill()
 
-# 4. Sélectionner par défaut les 3 joueurs ayant la meilleure moyenne à la dernière soirée
-# On prend la dernière ligne (iloc[-1]), on retire les valeurs vides, on trie de façon décroissante et on prend les 3 premiers
-dernieres_moyennes = combined_data.iloc[-1].dropna()
-meilleurs_joueurs = dernieres_moyennes.sort_values(ascending=False).head(3).index.tolist()
+# # 4. Sélectionner par défaut les 3 joueurs ayant la meilleure moyenne à la dernière soirée
+# # On prend la dernière ligne (iloc[-1]), on retire les valeurs vides, on trie de façon décroissante et on prend les 3 premiers
+# dernieres_moyennes = combined_data.iloc[-1].dropna()
+# meilleurs_joueurs = dernieres_moyennes.sort_values(ascending=False).head(3).index.tolist()
+
+# 4. Sélectionner par défaut les 3 joueurs du podium (utilisation de la variable top3 existante)
+meilleurs_joueurs = top3['noms'].tolist()
 
 # 5. Interface Streamlit : Sélecteur de joueurs
 st.write("Sélectionnez les joueurs pour comparer leur évolution :")
