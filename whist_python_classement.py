@@ -212,3 +212,91 @@ with col2:
     </style>
     """, unsafe_allow_html=True)
 
+
+
+
+
+
+# -----------------------------
+# ÉVOLUTION DE LA MOYENNE : TOUS LES JOUEURS
+# -----------------------------
+st.write("---")
+st.subheader("📈 Évolution des moyennes")
+
+# 1. Charger la feuille d'historique (sans en-tête pour cibler par index)
+df_historique = pd.read_excel(EXCEL_FILE, sheet_name="All stat", header=None)
+
+# 2. Initialiser un DataFrame vide qui va rassembler toutes les moyennes
+combined_data = pd.DataFrame()
+
+# La ligne contenant les prénoms est la 9ème ligne (index 8)
+# Le premier joueur est à la colonne C (index 2)
+col_idx = 2
+
+while col_idx < len(df_historique.columns):
+    # Récupérer le nom du joueur
+    player_name = str(df_historique.iloc[8, col_idx]).strip()
+    
+    # Si la cellule est vide ou "nan", on a atteint la fin des joueurs
+    if pd.isna(df_historique.iloc[8, col_idx]) or player_name.lower() == "nan" or player_name == "":
+        break
+
+    # Isoler les colonnes : Soirée (1), Score du joueur (col_idx), Parties du joueur (col_idx + 1)
+    df_player = df_historique.iloc[:, [1, col_idx, col_idx + 1]].copy()
+    df_player.columns = ["Num_Soiree", "Score_Soiree", "Parties_Soiree"]
+
+    # Convertir en valeurs numériques
+    df_player["Num_Soiree"] = pd.to_numeric(df_player["Num_Soiree"], errors='coerce')
+    df_player["Score_Soiree"] = pd.to_numeric(df_player["Score_Soiree"], errors='coerce')
+    df_player["Parties_Soiree"] = pd.to_numeric(df_player["Parties_Soiree"], errors='coerce')
+
+    # Ne garder que les soirées où le joueur a effectivement joué
+    df_player = df_player.dropna(subset=["Num_Soiree", "Score_Soiree", "Parties_Soiree"]).copy()
+
+    if not df_player.empty:
+        # Trier chronologiquement (Soirée 1 en haut)
+        df_player = df_player.sort_values(by="Num_Soiree", ascending=True)
+
+        # Calculer les totaux cumulés
+        df_player["Score_Cumule"] = df_player["Score_Soiree"].cumsum()
+        df_player["Parties_Cumulees"] = df_player["Parties_Soiree"].cumsum()
+
+        # Calculer la moyenne évolutive
+        df_player["Moyenne_Evolutive"] = df_player["Score_Cumule"] / df_player["Parties_Cumulees"]
+
+        # Préparer le tableau avec le numéro de soirée en index et le nom du joueur en colonne
+        df_player = df_player.set_index("Num_Soiree")[["Moyenne_Evolutive"]]
+        df_player.rename(columns={"Moyenne_Evolutive": player_name}, inplace=True)
+
+        # Ajouter au DataFrame global
+        if combined_data.empty:
+            combined_data = df_player
+        else:
+            combined_data = combined_data.merge(df_player, left_index=True, right_index=True, how='outer')
+
+    # Passer au joueur suivant (+2 colonnes)
+    col_idx += 2
+
+# 3. Trier l'axe des soirées de la première à la dernière et remplir les vides
+combined_data = combined_data.sort_index()
+combined_data = combined_data.ffill()
+
+# 4. Sélectionner par défaut les 3 joueurs ayant la meilleure moyenne à la dernière soirée
+# On prend la dernière ligne (iloc[-1]), on retire les valeurs vides, on trie de façon décroissante et on prend les 3 premiers
+dernieres_moyennes = combined_data.iloc[-1].dropna()
+meilleurs_joueurs = dernieres_moyennes.sort_values(ascending=False).head(3).index.tolist()
+
+# 5. Interface Streamlit : Sélecteur de joueurs
+st.write("Sélectionnez les joueurs pour comparer leur évolution :")
+
+joueurs_selectionnes = st.multiselect(
+    "Joueurs",
+    options=combined_data.columns,
+    default=meilleurs_joueurs
+)
+
+# 6. Afficher le graphique
+if joueurs_selectionnes:
+    st.line_chart(combined_data[joueurs_selectionnes])
+else:
+    st.warning("Veuillez sélectionner au moins un joueur.")
